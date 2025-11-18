@@ -23,7 +23,9 @@ async function ProfilePageServer({ params }: { params: { username: string } }) {
   if (!dbUser) notFound();
 
   const clerk = await currentUser();
-  const clerkImage = clerk?.imageUrl ?? null;
+
+  // ✅ FIX: ensure this is ALWAYS a string
+  const clerkImage = clerk?.imageUrl ?? "/avatar.png";
 
   const [posts, likedPosts, isCurrentUserFollowing] = await Promise.all([
     getUserPosts(dbUser.id),
@@ -33,7 +35,7 @@ async function ProfilePageServer({ params }: { params: { username: string } }) {
 
   return (
     <ProfilePageClient
-      user={{ ...dbUser, clerkImage }}
+      user={{ ...dbUser, clerkImage }}   // 🔥 FIX: now clerkImage is guaranteed string
       posts={posts}
       likedPosts={likedPosts}
       isFollowing={isCurrentUserFollowing}
