@@ -1,3 +1,4 @@
+// CreatePost.tsx patched
 "use client";
 
 import { useUser } from "@clerk/nextjs";
@@ -25,11 +26,9 @@ function CreatePost() {
     try {
       const result = await createPost(content, imageUrl);
       if (result?.success) {
-        // reset the form
         setContent("");
         setImageUrl("");
         setShowImageUpload(false);
-
         toast.success("Post created successfully");
       }
     } catch (error) {

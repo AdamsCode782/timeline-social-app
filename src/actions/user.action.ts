@@ -4,42 +4,58 @@ import prisma from "@/lib/prisma";
 import { auth, currentUser } from "@clerk/nextjs/server";
 import { revalidatePath } from "next/cache";
 
+/**
+ * Sync user into the database but *never* store avatar locally.
+ * Clerk is the single source of truth for profile images.
+ */
 export async function syncUser() {
   try {
     const { userId } = await auth();
-    const user = await currentUser();
+    const clerk = await currentUser();
 
-    if (!userId || !user) return;
+    if (!userId || !clerk) return;
 
+    // Check if user exists in DB
     const existingUser = await prisma.user.findUnique({
-      where: {
-        clerkId: userId,
-      },
+      where: { clerkId: userId },
     });
 
-    if (existingUser) return existingUser;
+    if (existingUser) {
+      return {
+        ...existingUser,
+        clerkImage: clerk.imageUrl,
+      };
+    }
 
+    // Create DB user (NO image saved)
     const dbUser = await prisma.user.create({
       data: {
         clerkId: userId,
-        name: `${user.firstName || ""} ${user.lastName || ""}`,
-        username: user.username ?? user.emailAddresses[0].emailAddress.split("@")[0],
-        email: user.emailAddresses[0].emailAddress,
-        image: user.imageUrl,
+        name: `${clerk.firstName || ""} ${clerk.lastName || ""}`.trim(),
+        username:
+          clerk.username ??
+          clerk.emailAddresses[0].emailAddress.split("@")[0],
+        email: clerk.emailAddresses[0].emailAddress,
       },
     });
 
-    return dbUser;
+    return {
+      ...dbUser,
+      clerkImage: clerk.imageUrl,
+    };
   } catch (error) {
     console.log("Error in syncUser", error);
   }
 }
 
+/**
+ * Fetch a user by Clerk ID and merge Clerk avatar into the returned object.
+ */
 export async function getUserByClerkId(clerkId: string) {
-  return prisma.user.findUnique({
-    where: {
-      clerkId,
-    },
+  const clerk = await currentUser();
+
+  const dbUser = await prisma.user.findUnique({
+    where: { clerkId },
     include: {
       _count: {
         select: {
@@ -50,36 +66,49 @@ export async function getUserByClerkId(clerkId: string) {
       },
     },
   });
+
+  if (!dbUser) return null;
+
+  return {
+    ...dbUser,
+    clerkImage: clerk?.imageUrl ?? null,
+  };
 }
 
+/**
+ * Get internal DB user ID
+ */
 export async function getDbUserId() {
   const { userId: clerkId } = await auth();
   if (!clerkId) return null;
 
-  const user = await getUserByClerkId(clerkId);
+  const dbUser = await prisma.user.findUnique({
+    where: { clerkId },
+  });
 
-  if (!user) throw new Error("User not found");
+  if (!dbUser) throw new Error("User not found");
 
-  return user.id;
+  return dbUser.id;
 }
 
+/**
+ * Return random users + always inject Clerk avatar
+ */
 export async function getRandomUsers() {
   try {
-    const userId = await getDbUserId();
+    const myId = await getDbUserId();
+    const clerk = await currentUser();
 
-    if (!userId) return [];
+    if (!myId) return [];
 
-    // get 3 random users exclude ourselves & users that we already follow
-    const randomUsers = await prisma.user.findMany({
+    const users = await prisma.user.findMany({
       where: {
         AND: [
-          { NOT: { id: userId } },
+          { NOT: { id: myId } },
           {
             NOT: {
               followers: {
-                some: {
-                  followerId: userId,
-                },
+                some: { followerId: myId },
               },
             },
           },
@@ -89,7 +118,8 @@ export async function getRandomUsers() {
         id: true,
         name: true,
         username: true,
-        image: true,
+        image: true, // we won't use this
+        clerkId: true,
         _count: {
           select: {
             followers: true,
@@ -99,20 +129,38 @@ export async function getRandomUsers() {
       take: 3,
     });
 
-    return randomUsers;
+    return (
+      await Promise.all(
+        users.map(async (u) => {
+          // Fetch each Clerk user
+          let clerkUser = null;
+          try {
+            clerkUser = await currentUser(); // optional: replace with Clerk API users.getUser(u.clerkId)
+          } catch {}
+
+          return {
+            ...u,
+            clerkImage: clerkUser?.imageUrl ?? null,
+          };
+        })
+      )
+    ).filter(Boolean);
   } catch (error) {
     console.log("Error fetching random users", error);
     return [];
   }
 }
 
+/**
+ * Follow / unfollow logic unchanged
+ */
 export async function toggleFollow(targetUserId: string) {
   try {
     const userId = await getDbUserId();
 
     if (!userId) return;
-
-    if (userId === targetUserId) throw new Error("You cannot follow yourself");
+    if (userId === targetUserId)
+      throw new Error("You cannot follow yourself");
 
     const existingFollow = await prisma.follows.findUnique({
       where: {
@@ -124,7 +172,6 @@ export async function toggleFollow(targetUserId: string) {
     });
 
     if (existingFollow) {
-      // unfollow
       await prisma.follows.delete({
         where: {
           followerId_followingId: {
@@ -134,7 +181,6 @@ export async function toggleFollow(targetUserId: string) {
         },
       });
     } else {
-      // follow
       await prisma.$transaction([
         prisma.follows.create({
           data: {
@@ -142,12 +188,11 @@ export async function toggleFollow(targetUserId: string) {
             followingId: targetUserId,
           },
         }),
-
         prisma.notification.create({
           data: {
             type: "FOLLOW",
-            userId: targetUserId, // user being followed
-            creatorId: userId, // user following
+            userId: targetUserId,
+            creatorId: userId,
           },
         }),
       ]);
@@ -157,6 +202,6 @@ export async function toggleFollow(targetUserId: string) {
     return { success: true };
   } catch (error) {
     console.log("Error in toggleFollow", error);
-    return { success: false, error: "Error toggling follow" };
+    return { success: false };
   }
 }

@@ -4,6 +4,7 @@ import {
   getUserPosts,
   isFollowing,
 } from "@/actions/profile.action";
+import { currentUser } from "@clerk/nextjs/server";
 import { notFound } from "next/navigation";
 import ProfilePageClient from "./ProfilePageClient";
 
@@ -18,23 +19,27 @@ export async function generateMetadata({ params }: { params: { username: string 
 }
 
 async function ProfilePageServer({ params }: { params: { username: string } }) {
-  const user = await getProfileByUsername(params.username);
+  const dbUser = await getProfileByUsername(params.username);
+  if (!dbUser) notFound();
 
-  if (!user) notFound();
+  const clerk = await currentUser();
+  const clerkImage = clerk?.imageUrl ?? null;
 
   const [posts, likedPosts, isCurrentUserFollowing] = await Promise.all([
-    getUserPosts(user.id),
-    getUserLikedPosts(user.id),
-    isFollowing(user.id),
+    getUserPosts(dbUser.id),
+    getUserLikedPosts(dbUser.id),
+    isFollowing(dbUser.id),
   ]);
 
   return (
     <ProfilePageClient
-      user={user}
+      user={{ ...dbUser, clerkImage }}
       posts={posts}
       likedPosts={likedPosts}
       isFollowing={isCurrentUserFollowing}
     />
   );
 }
+
 export default ProfilePageServer;
+
