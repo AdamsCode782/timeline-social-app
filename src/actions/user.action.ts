@@ -79,6 +79,19 @@ export async function deleteMyProfile() {
     return { success: false };
   }
 }
+export async function getUserByClerkId(clerkId: string) {
+  return prisma.user.findUnique({
+    where: { clerkId },
+    include: {
+      _count: {
+        select: {
+          followers: true,
+          following: true,
+        },
+      },
+    },
+  });
+}
 
 /** Follow/unfollow */
 export async function toggleFollow(targetUserId: string) {
