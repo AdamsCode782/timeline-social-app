@@ -6,7 +6,6 @@ import { revalidatePath } from "next/cache";
 
 /**
  * Sync user into the database but *never* store avatar locally.
- * Clerk is the single source of truth for profile images.
  */
 export async function syncUser() {
   try {
@@ -15,7 +14,6 @@ export async function syncUser() {
 
     if (!userId || !clerk) return;
 
-    // Check if user exists in DB
     const existingUser = await prisma.user.findUnique({
       where: { clerkId: userId },
     });
@@ -27,7 +25,6 @@ export async function syncUser() {
       };
     }
 
-    // Create DB user (NO image saved)
     const dbUser = await prisma.user.create({
       data: {
         clerkId: userId,
@@ -48,36 +45,7 @@ export async function syncUser() {
   }
 }
 
-/**
- * Fetch a user by Clerk ID and merge Clerk avatar into the returned object.
- */
-export async function getUserByClerkId(clerkId: string) {
-  const clerk = await currentUser();
-
-  const dbUser = await prisma.user.findUnique({
-    where: { clerkId },
-    include: {
-      _count: {
-        select: {
-          followers: true,
-          following: true,
-          posts: true,
-        },
-      },
-    },
-  });
-
-  if (!dbUser) return null;
-
-  return {
-    ...dbUser,
-    clerkImage: clerk?.imageUrl ?? null,
-  };
-}
-
-/**
- * Get internal DB user ID
- */
+/** Get DB userId */
 export async function getDbUserId() {
   const { userId: clerkId } = await auth();
   if (!clerkId) return null;
@@ -87,78 +55,37 @@ export async function getDbUserId() {
   });
 
   if (!dbUser) throw new Error("User not found");
-
   return dbUser.id;
 }
 
 /**
- * Return random users + always inject Clerk avatar
+ * Delete EVERYTHING for a user (posts, comments, likes, follows, notifications, user).
+ * Cascading deletes are handled automatically by Prisma.
  */
-export async function getRandomUsers() {
+export async function deleteMyProfile() {
+  const { userId: clerkId } = await auth();
+  if (!clerkId) return { success: false };
+
   try {
-    const myId = await getDbUserId();
-    const clerk = await currentUser();
-
-    if (!myId) return [];
-
-    const users = await prisma.user.findMany({
-      where: {
-        AND: [
-          { NOT: { id: myId } },
-          {
-            NOT: {
-              followers: {
-                some: { followerId: myId },
-              },
-            },
-          },
-        ],
-      },
-      select: {
-        id: true,
-        name: true,
-        username: true,
-        image: true, // we won't use this
-        clerkId: true,
-        _count: {
-          select: {
-            followers: true,
-          },
-        },
-      },
-      take: 3,
+    await prisma.user.delete({
+      where: { clerkId },
     });
 
-    return (
-      await Promise.all(
-        users.map(async (u) => {
-          // Fetch each Clerk user
-          let clerkUser = null;
-          try {
-            clerkUser = await currentUser(); // optional: replace with Clerk API users.getUser(u.clerkId)
-          } catch {}
-
-          return {
-            ...u,
-            clerkImage: clerkUser?.imageUrl ?? null,
-          };
-        })
-      )
-    ).filter(Boolean);
+    // Revalidate home feed and profile pages
+    revalidatePath("/");
+    return { success: true };
   } catch (error) {
-    console.log("Error fetching random users", error);
-    return [];
+    console.error("Error deleting profile:", error);
+    return { success: false };
   }
 }
 
-/**
- * Follow / unfollow logic unchanged
- */
+/** Follow/unfollow */
 export async function toggleFollow(targetUserId: string) {
   try {
     const userId = await getDbUserId();
-
     if (!userId) return;
+
     if (userId === targetUserId)
       throw new Error("You cannot follow yourself");
 

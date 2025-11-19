@@ -8,7 +8,7 @@ import { currentUser } from "@clerk/nextjs/server";
 import { notFound } from "next/navigation";
 import ProfilePageClient from "./ProfilePageClient";
 
-export async function generateMetadata({ params }: { params: { username: string } }) {
+export async function generateMetadata({ params }) {
   const user = await getProfileByUsername(params.username);
   if (!user) return;
 
@@ -18,13 +18,12 @@ export async function generateMetadata({ params }: { params: { username: string 
   };
 }
 
-async function ProfilePageServer({ params }: { params: { username: string } }) {
+async function ProfilePageServer({ params }) {
   const dbUser = await getProfileByUsername(params.username);
   if (!dbUser) notFound();
 
   const clerk = await currentUser();
 
-  // ✅ FIX: ensure this is ALWAYS a string
   const clerkImage = clerk?.imageUrl ?? "/avatar.png";
 
   const [posts, likedPosts, isCurrentUserFollowing] = await Promise.all([
@@ -35,7 +34,7 @@ async function ProfilePageServer({ params }: { params: { username: string } }) {
 
   return (
     <ProfilePageClient
-      user={{ ...dbUser, clerkImage }}   // 🔥 FIX: now clerkImage is guaranteed string
+      user={{ ...dbUser, clerkImage }}
       posts={posts}
       likedPosts={likedPosts}
       isFollowing={isCurrentUserFollowing}
@@ -44,4 +43,3 @@ async function ProfilePageServer({ params }: { params: { username: string } }) {
 }
 
 export default ProfilePageServer;
-
