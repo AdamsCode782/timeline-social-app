@@ -1,5 +1,17 @@
 "use client";
 
+import { toggleFollow, deleteMyProfile } from "@/actions/user.action";
+import { UserAvatar } from "@/components/ui/avatar";
+import { Button } from "@/components/ui/button";
+import PostCard from "@/components/PostCard";
+import {
+  Dialog,
+  DialogClose,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
@@ -8,6 +20,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { SignInButton, useUser } from "@clerk/nextjs";
 import { useRouter } from "next/navigation";
 import { format } from "date-fns";
+import { updateProfile, getProfileByUsername } from "@/actions/profile.action";
 import {
   CalendarIcon,
   EditIcon,
@@ -49,6 +62,9 @@ type ClerkifiedPost = {
   likes: { userId: string }[];
   _count: { likes: number; comments: number };
 };
+
+type User = NonNullable<Awaited<ReturnType<typeof getProfileByUsername>>>;
+
 
 interface ProfilePageClientProps {
   isFollowing: boolean;
