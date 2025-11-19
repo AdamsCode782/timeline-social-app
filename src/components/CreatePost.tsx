@@ -1,10 +1,9 @@
-// CreatePost.tsx patched
 "use client";
 
 import { useUser } from "@clerk/nextjs";
 import { useState } from "react";
 import { Card, CardContent } from "./ui/card";
-import { Avatar, AvatarImage } from "./ui/avatar";
+import { UserAvatar } from "./ui/avatar";
 import { Textarea } from "./ui/textarea";
 import { ImageIcon, Loader2Icon, SendIcon } from "lucide-react";
 import { Button } from "./ui/button";
@@ -23,8 +22,10 @@ function CreatePost() {
     if (!content.trim() && !imageUrl) return;
 
     setIsPosting(true);
+
     try {
       const result = await createPost(content, imageUrl);
+
       if (result?.success) {
         setContent("");
         setImageUrl("");
@@ -39,14 +40,20 @@ function CreatePost() {
     }
   };
 
+  if (!user) return null;
+
   return (
     <Card className="mb-6">
       <CardContent className="pt-6">
         <div className="space-y-4">
+          {/* AVATAR + TEXTAREA */}
           <div className="flex space-x-4">
-            <Avatar className="w-10 h-10">
-              <AvatarImage src={user?.imageUrl || "/avatar.png"} />
-            </Avatar>
+            <UserAvatar
+              src={user.imageUrl}
+              fallback="/avatar.png"
+              className="w-10 h-10"
+            />
+
             <Textarea
               placeholder="What's on your mind?"
               className="min-h-[100px] resize-none border-none focus-visible:ring-0 p-0 text-base"
@@ -56,6 +63,7 @@ function CreatePost() {
             />
           </div>
 
+          {/* IMAGE UPLOADER */}
           {(showImageUpload || imageUrl) && (
             <div className="border rounded-lg p-4">
               <ImageUpload
@@ -69,6 +77,7 @@ function CreatePost() {
             </div>
           )}
 
+          {/* FOOTER BUTTONS */}
           <div className="flex items-center justify-between border-t pt-4">
             <div className="flex space-x-2">
               <Button
@@ -83,6 +92,7 @@ function CreatePost() {
                 Photo
               </Button>
             </div>
+
             <Button
               className="flex items-center"
               onClick={handleSubmit}
@@ -106,4 +116,5 @@ function CreatePost() {
     </Card>
   );
 }
+
 export default CreatePost;
