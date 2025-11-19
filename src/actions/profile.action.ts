@@ -4,6 +4,9 @@ import prisma from "@/lib/prisma";
 import { currentUser } from "@clerk/nextjs/server";
 import { getDbUserId } from "./user.action";
 
+/* -------------------------------------------------------
+   FETCH PROFILE
+------------------------------------------------------- */
 export async function getProfileByUsername(username: string) {
   const clerk = await currentUser();
 
@@ -23,13 +26,19 @@ export async function getProfileByUsername(username: string) {
     },
   });
 
-  return user
-    ? { ...user, clerkImage: clerk?.imageUrl ?? null }
-    : null;
+  if (!user) return null;
+
+  return {
+    ...user,
+    clerkImage: `https://img.clerk.com/${user.clerkId}`,
+  };
 }
 
+/* -------------------------------------------------------
+   USER POSTS (with clerkImage injected)
+------------------------------------------------------- */
 export async function getUserPosts(userId: string) {
-  return prisma.post.findMany({
+  const posts = await prisma.post.findMany({
     where: { authorId: userId },
     include: {
       author: { select: { id: true, name: true, username: true, clerkId: true } },
@@ -44,10 +53,28 @@ export async function getUserPosts(userId: string) {
     },
     orderBy: { createdAt: "desc" },
   });
+
+  return posts.map((post) => ({
+    ...post,
+    author: {
+      ...post.author,
+      clerkImage: `https://img.clerk.com/${post.author.clerkId}`,
+    },
+    comments: post.comments.map((c) => ({
+      ...c,
+      author: {
+        ...c.author,
+        clerkImage: `https://img.clerk.com/${c.author.clerkId}`,
+      },
+    })),
+  }));
 }
 
+/* -------------------------------------------------------
+   LIKED POSTS (with clerkImage injected)
+------------------------------------------------------- */
 export async function getUserLikedPosts(userId: string) {
-  return prisma.post.findMany({
+  const posts = await prisma.post.findMany({
     where: { likes: { some: { userId } } },
     include: {
       author: { select: { id: true, name: true, username: true, clerkId: true } },
@@ -62,8 +89,26 @@ export async function getUserLikedPosts(userId: string) {
     },
     orderBy: { createdAt: "desc" },
   });
+
+  return posts.map((post) => ({
+    ...post,
+    author: {
+      ...post.author,
+      clerkImage: `https://img.clerk.com/${post.author.clerkId}`,
+    },
+    comments: post.comments.map((c) => ({
+      ...c,
+      author: {
+        ...c.author,
+        clerkImage: `https://img.clerk.com/${c.author.clerkId}`,
+      },
+    })),
+  }));
 }
 
+/* -------------------------------------------------------
+   UPDATE PROFILE
+------------------------------------------------------- */
 export async function updateProfile(formData: FormData) {
   const name = formData.get("name") as string;
   const bio = formData.get("bio") as string;
@@ -84,6 +129,9 @@ export async function updateProfile(formData: FormData) {
   return { success: true };
 }
 
+/* -------------------------------------------------------
+   FOLLOW CHECK
+------------------------------------------------------- */
 export async function isFollowing(userId: string) {
   const currentUserId = await getDbUserId();
   if (!currentUserId) return false;
