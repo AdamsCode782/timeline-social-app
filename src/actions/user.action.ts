@@ -93,6 +93,28 @@ export async function getUserByClerkId(clerkId: string) {
   });
 }
 
+export async function getRandomUsers(limit = 5) {
+  const users = await prisma.user.findMany({
+    take: limit,
+    orderBy: { createdAt: "desc" },
+    include: {
+      _count: {
+        select: {
+          followers: true,
+          following: true,
+        },
+      },
+    },
+  });
+
+  return users.map(u => ({
+    ...u,
+    clerkImage: u.image ?? "/avatar.png",
+  }));
+}
+
+
+
 /** Follow/unfollow */
 export async function toggleFollow(targetUserId: string) {
   try {
