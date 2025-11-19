@@ -20,6 +20,36 @@ import {
 import { useState } from "react";
 import toast from "react-hot-toast";
 
+type ClerkifiedUser = {
+  id: string;
+  name: string | null;
+  username: string;
+  clerkId: string;
+  clerkImage: string;
+};
+
+type ClerkifiedComment = {
+  id: string;
+  authorId: string;
+  postId: string;
+  content: string;
+  createdAt: Date;
+  author: ClerkifiedUser;
+};
+
+type ClerkifiedPost = {
+  id: string;
+  authorId: string;
+  content: string | null;
+  image: string | null;
+  createdAt: Date;
+  updatedAt: Date;
+  author: ClerkifiedUser;
+  comments: ClerkifiedComment[];
+  likes: { userId: string }[];
+  _count: { likes: number; comments: number };
+};
+
 interface ProfilePageClientProps {
   isFollowing: boolean;
   likedPosts: ClerkifiedPost[];
@@ -28,7 +58,7 @@ interface ProfilePageClientProps {
 }
 
 function ProfilePageClient({
-  isFollowing: initialIsFollowing,
+  isFollowing: initialIsFollowing, 
   likedPosts,
   posts,
   user,
