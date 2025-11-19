@@ -1,12 +1,29 @@
 import { getRandomUsers } from "@/actions/user.action";
+import { isFollowing } from "@/actions/profile.action";
 import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
 import Link from "next/link";
 import FollowButton from "./FollowButton";
 import { UserAvatar } from "./ui/avatar";
+import { getDbUserId } from "@/actions/user.action";
 
 async function WhoToFollow() {
   const users = await getRandomUsers();
   if (!users.length) return null;
+
+  // Get current logged-in DB user id
+  const currentUserId = await getDbUserId();
+
+  // Determine whether the current user follows each suggested user
+  const enrichedUsers = await Promise.all(
+    users.map(async (u) => {
+      if (!currentUserId) {
+        return { ...u, initialIsFollowing: false };
+      }
+
+      const follows = await isFollowing(u.id);
+      return { ...u, initialIsFollowing: follows };
+    })
+  );
 
   return (
     <Card>
@@ -16,7 +33,7 @@ async function WhoToFollow() {
 
       <CardContent>
         <div className="space-y-4">
-          {users.map(user => (
+          {enrichedUsers.map((user) => (
             <div key={user.id} className="flex items-center justify-between gap-2">
               <div className="flex items-center gap-2">
                 <Link href={`/profile/${user.username}`}>
@@ -32,7 +49,10 @@ async function WhoToFollow() {
                 </div>
               </div>
 
-              <FollowButton userId={user.id} />
+              <FollowButton
+                userId={user.id}
+                initialIsFollowing={user.initialIsFollowing}
+              />
             </div>
           ))}
         </div>
