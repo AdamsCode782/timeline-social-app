@@ -1,24 +1,11 @@
 "use client";
 
-import { updateProfile } from "@/actions/profile.action";
-import { toggleFollow, deleteMyProfile } from "@/actions/user.action";
-import PostCard from "@/components/PostCard";
-import { UserAvatar } from "@/components/ui/avatar";
-import { Button } from "@/components/ui/button";
-import {
-  Dialog,
-  DialogClose,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-} from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
-import { SignInButton, useUser, SignOutButton } from "@clerk/nextjs";
+import { SignInButton, useUser } from "@clerk/nextjs";
 import { useRouter } from "next/navigation";
 import { format } from "date-fns";
 import {
@@ -33,14 +20,19 @@ import {
 import { useState } from "react";
 import toast from "react-hot-toast";
 
-/* TYPES OMITTED FOR BREVITY—keep your existing Clerkified types */
+interface ProfilePageClientProps {
+  isFollowing: boolean;
+  likedPosts: ClerkifiedPost[];
+  posts: ClerkifiedPost[];
+  user: User & { clerkImage: string };
+}
 
 function ProfilePageClient({
   isFollowing: initialIsFollowing,
   likedPosts,
   posts,
   user,
-}) {
+}: ProfilePageClientProps) {
   const { user: currentUser } = useUser();
   const router = useRouter();
 
