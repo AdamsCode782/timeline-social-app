@@ -32,6 +32,7 @@ import {
 } from "lucide-react";
 import { useState } from "react";
 import toast from "react-hot-toast";
+import { useClerk } from "@clerk/nextjs";
 
 type ClerkifiedUser = {
   id: string;
@@ -81,6 +82,7 @@ function ProfilePageClient({
 }: ProfilePageClientProps) {
   const { user: currentUser } = useUser();
   const router = useRouter();
+  const { signOut } = useClerk();
 
   const [showEditDialog, setShowEditDialog] = useState(false);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
@@ -121,10 +123,8 @@ function ProfilePageClient({
     }
   };
 
-  const isOwnProfile =
-    currentUser?.username === user.username ||
-    currentUser?.emailAddresses[0].emailAddress.split("@")[0] ===
-      user.username;
+  const isOwnProfile = currentUser?.id === user.clerkId;
+
 
   const handleDeleteProfile = async () => {
     setIsDeleting(true);
@@ -139,10 +139,7 @@ function ProfilePageClient({
     toast.success("Profile deleted");
 
     // Clerk logout
-    setTimeout(() => {
-      router.push("/");
-      window.location.href = "/sign-in";
-    }, 800);
+    await signOut()
   };
 
   const formattedDate = format(new Date(user.createdAt), "MMMM yyyy");

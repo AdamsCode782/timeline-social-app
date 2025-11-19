@@ -6,17 +6,19 @@ import { Loader2Icon } from "lucide-react";
 import toast from "react-hot-toast";
 import { toggleFollow } from "@/actions/user.action";
 
-function FollowButton({ userId }: { userId: string }) {
+function FollowButton({ userId, initialIsFollowing = false }: { userId: string; initialIsFollowing?: boolean }) {
   const [isLoading, setIsLoading] = useState(false);
+  const [isFollowing, setIsFollowing] = useState(initialIsFollowing);
 
   const handleFollow = async () => {
     setIsLoading(true);
 
     try {
       await toggleFollow(userId);
-      toast.success("User followed successfully");
+      setIsFollowing((prev) => !prev);
+      toast.success(isFollowing ? "Unfollowed user" : "Followed user");
     } catch (error) {
-      toast.error("Error following user");
+      toast.error("Error updating follow status");
     } finally {
       setIsLoading(false);
     }
@@ -24,14 +26,21 @@ function FollowButton({ userId }: { userId: string }) {
 
   return (
     <Button
-      size={"sm"}
-      variant={"secondary"}
+      size="sm"
+      variant="secondary"
       onClick={handleFollow}
       disabled={isLoading}
       className="w-20"
     >
-      {isLoading ? <Loader2Icon className="size-4 animate-spin" /> : "Follow"}
+      {isLoading ? (
+        <Loader2Icon className="size-4 animate-spin" />
+      ) : isFollowing ? (
+        "Unfollow"
+      ) : (
+        "Follow"
+      )}
     </Button>
   );
 }
+
 export default FollowButton;
