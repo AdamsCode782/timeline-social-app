@@ -22,9 +22,11 @@ export async function generateMetadata({
   };
 }
 
-
-
-async function ProfilePageServer({ params }) {
+async function ProfilePageServer({
+  params,
+}: {
+  params: { username: string };
+}) {
   const dbUser = await getProfileByUsername(params.username);
   if (!dbUser) notFound();
 
