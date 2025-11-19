@@ -5,10 +5,21 @@ import { Button } from "./ui/button";
 import { Loader2Icon } from "lucide-react";
 import toast from "react-hot-toast";
 import { toggleFollow } from "@/actions/user.action";
+import { useUser } from "@clerk/nextjs";
 
-function FollowButton({ userId, initialIsFollowing = false }: { userId: string; initialIsFollowing?: boolean }) {
+function FollowButton({
+  userId,
+  initialIsFollowing = false,
+}: {
+  userId: string;
+  initialIsFollowing?: boolean;
+}) {
+  const { isSignedIn } = useUser();
   const [isLoading, setIsLoading] = useState(false);
   const [isFollowing, setIsFollowing] = useState(initialIsFollowing);
+
+  // Hide completely when signed out
+  if (!isSignedIn) return null;
 
   const handleFollow = async () => {
     setIsLoading(true);
